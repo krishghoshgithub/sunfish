@@ -108,16 +108,10 @@ def get_user_color():
 
 
 def print_unicode_board(board, perspective=chess.WHITE):
-    """Prints the position from a given perspective.
-
-    Both sides use the FILLED glyphs, told apart by foreground color -
-    the outline white glyphs read as black pieces on most terminal
-    fonts, which made the sides nearly indistinguishable."""
-    # Mid-tone squares so BOTH piece colors clear them: pale squares wash
-    # out the white pieces, near-black squares swallow the black ones.
+    """Prints the position from a given perspective with distinct piece colors and symbols."""
     print()
-    light, dark = 137, 94                        # deep tan / dark walnut
-    hl_light, hl_dark = 143, 101                 # two-tone last-move olive
+    light, dark = 223, 137                        # warm cream / classic wood tan
+    hl_light, hl_dark = 222, 178                 # gold last-move highlight
     label, reset = "\x1b[38;5;245m", "\x1b[0m"
     last = board.move_stack[-1] if board.move_stack else None
     ours, theirs = captured_pieces(board, perspective)
@@ -134,7 +128,7 @@ def print_unicode_board(board, perspective=chess.WHITE):
             piece = board.piece_at(sq)
             if piece:
                 fg = 231 if piece.color == chess.WHITE else 16
-                glyph = f"\x1b[38;5;{fg};48;5;{bg};1m {chess.UNICODE_PIECE_SYMBOLS[piece.symbol().lower()]} "
+                glyph = f"\x1b[38;5;{fg};48;5;{bg};1m {chess.UNICODE_PIECE_SYMBOLS[piece.symbol()]} "
             else:
                 glyph = f"\x1b[48;5;{bg}m   "
             line.append(glyph)
@@ -154,15 +148,19 @@ def print_unicode_board(board, perspective=chess.WHITE):
 
 def captured_pieces(board, perspective):
     """Each player's net captures after pairwise cancellation, as glyph
-    strings: (bottom player's tray, top player's tray). A surplus of a
-    type for one side means the OTHER side lost those pieces - they sit
-    in the first side's tray."""
+    strings: (bottom player's tray, top player's tray)."""
     order = (chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT, chess.PAWN)
     ours, theirs = [], []
     for pt in order:
         net = len(board.pieces(pt, perspective)) - len(board.pieces(pt, not perspective))
-        glyph = chess.UNICODE_PIECE_SYMBOLS[chess.piece_symbol(pt)]
-        (ours if net > 0 else theirs).extend(glyph * abs(net))
+        lost_by_top = perspective
+        lost_by_bot = not perspective
+        glyph_top = chess.UNICODE_PIECE_SYMBOLS[chess.piece_symbol(pt).upper() if lost_by_top == chess.WHITE else chess.piece_symbol(pt).lower()]
+        glyph_bot = chess.UNICODE_PIECE_SYMBOLS[chess.piece_symbol(pt).upper() if lost_by_bot == chess.WHITE else chess.piece_symbol(pt).lower()]
+        if net > 0:
+            ours.extend(glyph_bot * abs(net))
+        elif net < 0:
+            theirs.extend(glyph_top * abs(net))
     return "".join(ours), "".join(theirs)
 
 
