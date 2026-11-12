@@ -38,6 +38,11 @@ parser.add_argument(
     help="Start from given position",
     default="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
 )
+parser.add_argument(
+    "-unicode",
+    action="store_true",
+    help="Use unicode piece symbols instead of standard letter pieces",
+)
 
 
 def python_launcher(argv):
@@ -107,17 +112,17 @@ def get_user_color():
     return chess.WHITE if color == "white" else chess.BLACK
 
 
-def print_unicode_board(board, perspective=chess.WHITE):
-    """Prints the position from a given perspective with distinct piece colors and symbols."""
+def print_unicode_board(board, perspective=chess.WHITE, use_unicode=False):
+    """Prints the position from a given perspective with crisp alignment and contrast."""
     print()
-    light, dark = 223, 137                        # warm cream / classic wood tan
-    hl_light, hl_dark = 222, 178                 # gold last-move highlight
+    light, dark = 180, 137                        # classic warm wood tiles
+    hl_light, hl_dark = 215, 172                 # warm highlight
     label, reset = "\x1b[38;5;245m", "\x1b[0m"
     last = board.move_stack[-1] if board.move_stack else None
-    ours, theirs = captured_pieces(board, perspective)
+    ours, theirs = captured_pieces(board, perspective, use_unicode=use_unicode)
     ranks = list(range(8) if perspective == chess.BLACK else range(7, -1, -1))
     for i, r in enumerate(ranks):
-        line = [f"{label}{r + 1}{reset} "]
+        line = [f" {label}{r + 1}{reset} "]
         for c in range(8) if perspective == chess.WHITE else range(7, -1, -1):
             sq = 8 * r + c
             is_light = (r + c) % 2 == 1
@@ -127,26 +132,26 @@ def print_unicode_board(board, perspective=chess.WHITE):
                 bg = light if is_light else dark
             piece = board.piece_at(sq)
             if piece:
-                fg = 231 if piece.color == chess.WHITE else 16
-                glyph = f"\x1b[38;5;{fg};48;5;{bg};1m {chess.UNICODE_PIECE_SYMBOLS[piece.symbol()]} "
+                fg = "\x1b[97;1m" if piece.color == chess.WHITE else "\x1b[30;1m"
+                if use_unicode:
+                    sym = chess.UNICODE_PIECE_SYMBOLS[piece.symbol()]
+                else:
+                    sym = piece.symbol()
+                glyph = f"{fg}\x1b[48;5;{bg}m {sym} {reset}"
             else:
-                glyph = f"\x1b[48;5;{bg}m   "
+                glyph = f"\x1b[48;5;{bg}m   {reset}"
             line.append(glyph)
-        # Captured material flanks the board: what the top player has
-        # won beside the top rank, the bottom player's beside the bottom.
-        # Each tray holds one side's lost pieces and wears that side's
-        # piece color, on the terminal's own background.
         tray = theirs if i == 0 else ours if i == 7 else ""
         if tray:
             lost_by = perspective if i == 0 else not perspective
-            tray_fg = 231 if lost_by == chess.WHITE else 16
-            tray = f"  \x1b[38;5;{tray_fg};1m{tray}{reset}"
-        print("  " + "".join(line) + reset + tray)
+            tray_fg = "\x1b[97;1m" if lost_by == chess.WHITE else "\x1b[30;1m"
+            tray = f"  {tray_fg}{tray}{reset}"
+        print("".join(line) + reset + tray)
     files = "abcdefgh" if perspective == chess.WHITE else "hgfedcba"
-    print(f"    {label}" + " ".join(f" {f}" for f in files) + f"{reset}\n")
+    print(f"    {label}" + "".join(f" {f} " for f in files) + f"{reset}\n")
 
 
-def captured_pieces(board, perspective):
+def captured_pieces(board, perspective, use_unicode=False):
     """Each player's net captures after pairwise cancellation, as glyph
     strings: (bottom player's tray, top player's tray)."""
     order = (chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT, chess.PAWN)
@@ -155,8 +160,12 @@ def captured_pieces(board, perspective):
         net = len(board.pieces(pt, perspective)) - len(board.pieces(pt, not perspective))
         lost_by_top = perspective
         lost_by_bot = not perspective
-        glyph_top = chess.UNICODE_PIECE_SYMBOLS[chess.piece_symbol(pt).upper() if lost_by_top == chess.WHITE else chess.piece_symbol(pt).lower()]
-        glyph_bot = chess.UNICODE_PIECE_SYMBOLS[chess.piece_symbol(pt).upper() if lost_by_bot == chess.WHITE else chess.piece_symbol(pt).lower()]
+        if use_unicode:
+            glyph_top = chess.UNICODE_PIECE_SYMBOLS[chess.piece_symbol(pt).upper() if lost_by_top == chess.WHITE else chess.piece_symbol(pt).lower()]
+            glyph_bot = chess.UNICODE_PIECE_SYMBOLS[chess.piece_symbol(pt).upper() if lost_by_bot == chess.WHITE else chess.piece_symbol(pt).lower()]
+        else:
+            glyph_top = chess.piece_symbol(pt).upper() if lost_by_top == chess.WHITE else chess.piece_symbol(pt).lower()
+            glyph_bot = chess.piece_symbol(pt).upper() if lost_by_bot == chess.WHITE else chess.piece_symbol(pt).lower()
         if net > 0:
             ours.extend(glyph_bot * abs(net))
         elif net < 0:
@@ -253,7 +262,7 @@ async def get_engine_move(engine, board, limit, game_id, multipv, debug=False):
         return analysis.info["pv"][0]
 
 
-async def play(engine, board, selfplay, pvs, time_limit, debug=False):
+async def play(engine, board, selfplay, pvs, time_limit, debug=False, use_unicode=False):
     if not selfplay:
         user_color = get_user_color()
     else:
@@ -265,7 +274,7 @@ async def play(engine, board, selfplay, pvs, time_limit, debug=False):
     game_id = random.random()
 
     while not board.is_game_over():
-        print_unicode_board(board, perspective=user_color)
+        print_unicode_board(board, perspective=user_color, use_unicode=use_unicode)
         if not selfplay and user_color == board.turn:
             move = get_user_move(board)
             if move is None:
@@ -278,7 +287,7 @@ async def play(engine, board, selfplay, pvs, time_limit, debug=False):
         board.push(move)
 
     # Print status
-    print_unicode_board(board, perspective=user_color)
+    print_unicode_board(board, perspective=user_color, use_unicode=use_unicode)
     print("Result:", board.result())
 
 
@@ -348,6 +357,7 @@ async def main():
             pvs=args.pvs,
             time_limit=limit,
             debug=args.debug,
+            use_unicode=args.unicode,
         )
     finally:
         print("\nGoodbye!")
