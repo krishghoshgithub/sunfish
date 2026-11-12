@@ -108,19 +108,21 @@ def get_user_color():
 
 
 def print_unicode_board(board, perspective=chess.WHITE):
-    """Prints the position with pieces scaled to the squares and matching piece colors."""
+    """Prints the position from a given perspective with true square tiles and matching piece colors."""
     print()
     light, dark = 223, 137                        # warm cream / classic wood tan
     hl_light, hl_dark = 215, 172                 # gold last-move highlight
     label, reset = "\x1b[38;5;245m", "\x1b[0m"
     white_fg = "\x1b[38;5;231;1m"                # bright crisp white
-    # Exact sampled color from the terminal's pawn rendering: #635994 -> RGB(99, 89, 148)
+    # Verified matching color from terminal pawn rendering: #635994 -> RGB(99, 89, 148)
     blue_fg = "\x1b[38;2;99;89;148;1m"
     last = board.move_stack[-1] if board.move_stack else None
     ours, theirs = captured_pieces(board, perspective)
     ranks = list(range(8) if perspective == chess.BLACK else range(7, -1, -1))
     for i, r in enumerate(ranks):
-        line = [f"  {label}{r + 1}{reset} "]
+        row_top = ["    "]
+        row_mid = [f" {label}{r + 1}{reset}  "]
+        row_bot = ["    "]
         for c in range(8) if perspective == chess.WHITE else range(7, -1, -1):
             sq = 8 * r + c
             is_light = (r + c) % 2 == 1
@@ -131,20 +133,25 @@ def print_unicode_board(board, perspective=chess.WHITE):
             piece = board.piece_at(sq)
             if piece:
                 fg = white_fg if piece.color == chess.WHITE else blue_fg
-                glyph = f"{fg}\x1b[48;5;{bg}m {chess.UNICODE_PIECE_SYMBOLS[piece.symbol()]} {reset}"
+                cell_mid = f"{fg}\x1b[48;5;{bg}m  {chess.UNICODE_PIECE_SYMBOLS[piece.symbol()]}   {reset}"
             else:
-                glyph = f"\x1b[48;5;{bg}m   {reset}"
-            line.append(glyph)
-        # Captured material flanks the board
+                cell_mid = f"\x1b[48;5;{bg}m      {reset}"
+            cell_pad = f"\x1b[48;5;{bg}m      {reset}"
+            row_top.append(cell_pad)
+            row_mid.append(cell_mid)
+            row_bot.append(cell_pad)
+        # Captured material flanks the board beside the middle row
         tray = theirs if i == 0 else ours if i == 7 else ""
         tray_str = ""
         if tray:
             lost_by = perspective if i == 0 else not perspective
             tray_fg = white_fg if lost_by == chess.WHITE else blue_fg
             tray_str = f"  {tray_fg}{tray}{reset}"
-        print("".join(line) + reset + tray_str)
+        print("".join(row_top))
+        print("".join(row_mid) + reset + tray_str)
+        print("".join(row_bot))
     files = "abcdefgh" if perspective == chess.WHITE else "hgfedcba"
-    print(f"     {label}" + "  ".join(files) + f"{reset}\n")
+    print(f"     {label}" + "".join(f"  {f}   " for f in files) + f"{reset}\n")
 
 
 def captured_pieces(board, perspective):
