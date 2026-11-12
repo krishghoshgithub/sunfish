@@ -108,22 +108,18 @@ def get_user_color():
 
 
 def print_unicode_board(board, perspective=chess.WHITE):
-    """Prints the position from a given perspective.
-
-    Both sides use the FILLED glyphs, told apart by foreground color -
-    the outline white glyphs read as black pieces on most terminal
-    fonts, which made the sides nearly indistinguishable."""
-    # Mid-tone squares so BOTH piece colors clear them: pale squares wash
-    # out the white pieces, near-black squares swallow the black ones.
+    """Prints the position from a given perspective with centered squares and matching piece colors."""
     print()
-    light, dark = 137, 94                        # deep tan / dark walnut
-    hl_light, hl_dark = 143, 101                 # two-tone last-move olive
+    light, dark = 223, 137                        # warm cream / classic wood tan
+    hl_light, hl_dark = 215, 172                 # gold last-move highlight
     label, reset = "\x1b[38;5;245m", "\x1b[0m"
+    white_fg = "\x1b[38;5;231;1m"                # bright crisp white
+    blue_fg = "\x1b[38;2;63;136;197;1m"          # matching blue to unify black army with the pawn
     last = board.move_stack[-1] if board.move_stack else None
     ours, theirs = captured_pieces(board, perspective)
     ranks = list(range(8) if perspective == chess.BLACK else range(7, -1, -1))
     for i, r in enumerate(ranks):
-        line = [f"{label}{r + 1}{reset} "]
+        line = [f" {label}{r + 1}{reset}  "]
         for c in range(8) if perspective == chess.WHITE else range(7, -1, -1):
             sq = 8 * r + c
             is_light = (r + c) % 2 == 1
@@ -133,23 +129,21 @@ def print_unicode_board(board, perspective=chess.WHITE):
                 bg = light if is_light else dark
             piece = board.piece_at(sq)
             if piece:
-                fg = 231 if piece.color == chess.WHITE else 16
-                glyph = f"\x1b[38;5;{fg};48;5;{bg};1m {chess.UNICODE_PIECE_SYMBOLS[piece.symbol()]} "
+                fg = white_fg if piece.color == chess.WHITE else blue_fg
+                glyph = f"{fg}\x1b[48;5;{bg}m  {chess.UNICODE_PIECE_SYMBOLS[piece.symbol()]}  {reset}"
             else:
-                glyph = f"\x1b[48;5;{bg}m   "
+                glyph = f"\x1b[48;5;{bg}m     {reset}"
             line.append(glyph)
         # Captured material flanks the board: what the top player has
         # won beside the top rank, the bottom player's beside the bottom.
-        # Each tray holds one side's lost pieces and wears that side's
-        # piece color, on the terminal's own background.
         tray = theirs if i == 0 else ours if i == 7 else ""
         if tray:
             lost_by = perspective if i == 0 else not perspective
-            tray_fg = 231 if lost_by == chess.WHITE else 16
-            tray = f"  \x1b[38;5;{tray_fg};1m{tray}{reset}"
-        print("  " + "".join(line) + reset + tray)
+            tray_fg = white_fg if lost_by == chess.WHITE else blue_fg
+            tray = f"  {tray_fg}{tray}{reset}"
+        print("".join(line) + reset + tray)
     files = "abcdefgh" if perspective == chess.WHITE else "hgfedcba"
-    print(f"     {label}" + "  ".join(files) + f"{reset}\n")
+    print(f"     {label}" + "".join(f"  {f}  " for f in files) + f"{reset}\n")
 
 
 def captured_pieces(board, perspective):
