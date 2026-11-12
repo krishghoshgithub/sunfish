@@ -947,6 +947,7 @@ def from_fen(board, color, castling, enpas, _hclock, _fclock):
     wc = ("Q" in castling, "K" in castling)
     bc = ("k" in castling, "q" in castling)
     ep = sunfish.parse(enpas) if enpas != "-" else 0
+    hc = int(_hclock)
     if hasattr(sunfish, 'from_board'):
         # engines carrying an evaluation accumulator (nnue_4k) build the
         # position, and the accumulator, themselves
@@ -959,7 +960,7 @@ def from_fen(board, color, castling, enpas, _hclock, _fclock):
     else:
         score = sum(sunfish.pst[c][i] for i, c in enumerate(board) if c.isupper())
         score -= sum(sunfish.pst[c.upper()][119-i] for i, c in enumerate(board) if c.islower())
-        pos = sunfish.Position(board, score, wc, bc, ep, 0)
+        pos = sunfish.Position(board, score, wc, bc, ep, 0, hc)
     return pos if color == 'w' else pos.rotate()
 
 

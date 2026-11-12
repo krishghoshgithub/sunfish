@@ -116,7 +116,7 @@ uv sync  # or: pip install chess tqdm pytest pytest-asyncio
 
 # Limitations
 
-Sunfish supports all chess rules, except the 50-move draw rule.
+Sunfish supports all chess rules, including the 50-move draw rule.
 
 There are many ways in which you may try to make Sunfish stronger. First you could change from a board representation to a mutable array and add a fast way to enumerate pieces. Then you could implement dedicated capture generation, check detection and check evasions. You could also move everything to bitboards, implement parts of the code in C or experiment with parallel search!
 

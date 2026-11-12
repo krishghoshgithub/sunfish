@@ -204,7 +204,7 @@ opt_ranges = dict(
 Move = namedtuple("Move", "i j prom")
 
 
-class Position(namedtuple("Position", "board score wc bc ep kp")):
+class Position(namedtuple("Position", "board score wc bc ep kp hc", defaults=(0,))):
     """A state of a chess game
     board -- a 120 char representation of the board
     score -- the board evaluation
@@ -212,6 +212,7 @@ class Position(namedtuple("Position", "board score wc bc ep kp")):
     bc -- the opponent castling rights, [west/king side, east/queen side]
     ep - the en passant square
     kp - the king passant square
+    hc - the halfmove clock for the 50-move draw rule
     """
 
     def gen_moves(self):
@@ -250,7 +251,8 @@ class Position(namedtuple("Position", "board score wc bc ep kp")):
         """Rotates the board, preserving enpassant, unless nullmove"""
         return Position(self.board[::-1].swapcase(), -self.score, self.bc, self.wc,
                         119 - self.ep if self.ep and not nullmove else 0,
-                        119 - self.kp if self.kp and not nullmove else 0)
+                        119 - self.kp if self.kp and not nullmove else 0,
+                        self.hc)
 
     def move(self, move):
         i, j, prom = move
@@ -258,6 +260,8 @@ class Position(namedtuple("Position", "board score wc bc ep kp")):
         # Copy variables and reset ep and kp
         p, q, board, wc, bc, ep, kp = self.board[i], self.board[j], self.board, self.wc, self.bc, 0, 0
         score = self.score + self.value(move)
+        # Halfmove clock: reset on pawn moves and captures, increment otherwise
+        hc = 0 if (p == "P" or q in "pnbrqk") else self.hc + 1
         # Actual move
         board = put(board, j, board[i])
         board = put(board, i, ".")
@@ -277,7 +281,7 @@ class Position(namedtuple("Position", "board score wc bc ep kp")):
             if j - i == 2 * N: ep = i + N
             if j == self.ep:   board = put(board, j + S, ".")
         # We rotate the returned position, so it's ready for the next player
-        return Position(board, score, wc, bc, ep, kp).rotate()
+        return Position(board, score, wc, bc, ep, kp, hc).rotate()
 
     def value(self, move):
         i, j, prom = move
@@ -385,6 +389,13 @@ class Searcher:
         # or able to capture the opponent king.
         if pos.score <= -MATE_LOWER:
             return -MATE_UPPER
+
+        # 50-move draw rule: if 100 half-moves have passed without a capture
+        # or pawn move, the position is a draw. Like repetition, we skip the
+        # root (the driver knows the clock but the position is not yet drawn)
+        # and depth 0 (expensive and breaks futility pruning).
+        if not root and depth > 0 and pos.hc >= 100:
+            return 0
 
         # Look in the table if we have already searched this position before.
         # Driver probes (the search root) are UNSTORED: they
@@ -574,7 +585,7 @@ class Searcher:
 def parse(c): return A1 + ord(c[0]) - ord("a") - 10 * (int(c[1]) - 1)
 def render(i): return chr((i - A1) % 10 + ord("a")) + str(1 - (i - A1) // 10)
 
-hist = [Position(initial, 0, (True, True), (True, True), 0, 0)]
+hist = [Position(initial, 0, (True, True), (True, True), 0, 0, 0)]
 
 
 def main():
