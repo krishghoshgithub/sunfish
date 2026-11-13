@@ -38,11 +38,6 @@ parser.add_argument(
     help="Start from given position",
     default="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
 )
-parser.add_argument(
-    "-large",
-    action="store_true",
-    help="Use the larger 6x3 square tiles instead of compact 4x2 square tiles",
-)
 
 
 def python_launcher(argv):
@@ -112,12 +107,8 @@ def get_user_color():
     return chess.WHITE if color == "white" else chess.BLACK
 
 
-def print_unicode_board(board, perspective=chess.WHITE, large=False):
-    """Prints the position from a given perspective with true square tiles and matching piece colors.
-    
-    If large=False (default), uses compact 4x2 square tiles so pieces scale closely to the board.
-    If large=True, uses the larger 6x3 square tiles.
-    """
+def print_unicode_board(board, perspective=chess.WHITE):
+    """Prints the position from a given perspective with true square tiles and centered pieces."""
     print()
     light, dark = 223, 137                        # warm cream / classic wood tan
     hl_light, hl_dark = 215, 172                 # gold last-move highlight
@@ -129,13 +120,9 @@ def print_unicode_board(board, perspective=chess.WHITE, large=False):
     ours, theirs = captured_pieces(board, perspective)
     ranks = list(range(8) if perspective == chess.BLACK else range(7, -1, -1))
     for i, r in enumerate(ranks):
-        if large:
-            row_top = ["    "]
-            row_mid = [f" {label}{r + 1}{reset}  "]
-            row_bot = ["    "]
-        else:
-            row_mid = [f" {label}{r + 1}{reset} "]
-            row_bot = ["   "]
+        row_top = ["    "]
+        row_mid = [f" {label}{r + 1}{reset}  "]
+        row_bot = ["    "]
         for c in range(8) if perspective == chess.WHITE else range(7, -1, -1):
             sq = 8 * r + c
             is_light = (r + c) % 2 == 1
@@ -144,25 +131,15 @@ def print_unicode_board(board, perspective=chess.WHITE, large=False):
             else:
                 bg = light if is_light else dark
             piece = board.piece_at(sq)
-            sym = chess.UNICODE_PIECE_SYMBOLS[piece.symbol()] if piece else ""
-            fg = white_fg if (piece and piece.color == chess.WHITE) else blue_fg
-            if large:
-                if piece:
-                    cell_mid = f"{fg}\x1b[48;5;{bg}m  {sym}   {reset}"
-                else:
-                    cell_mid = f"\x1b[48;5;{bg}m      {reset}"
-                cell_pad = f"\x1b[48;5;{bg}m      {reset}"
-                row_top.append(cell_pad)
-                row_mid.append(cell_mid)
-                row_bot.append(cell_pad)
+            if piece:
+                fg = white_fg if piece.color == chess.WHITE else blue_fg
+                cell_mid = f"{fg}\x1b[48;5;{bg}m  {chess.UNICODE_PIECE_SYMBOLS[piece.symbol()]}   {reset}"
             else:
-                if piece:
-                    cell_mid = f"{fg}\x1b[48;5;{bg}m {sym}  {reset}"
-                else:
-                    cell_mid = f"\x1b[48;5;{bg}m    {reset}"
-                cell_bot = f"\x1b[48;5;{bg}m    {reset}"
-                row_mid.append(cell_mid)
-                row_bot.append(cell_bot)
+                cell_mid = f"\x1b[48;5;{bg}m      {reset}"
+            cell_pad = f"\x1b[48;5;{bg}m      {reset}"
+            row_top.append(cell_pad)
+            row_mid.append(cell_mid)
+            row_bot.append(cell_pad)
         # Captured material flanks the board beside the middle row
         tray = theirs if i == 0 else ours if i == 7 else ""
         tray_str = ""
@@ -170,18 +147,11 @@ def print_unicode_board(board, perspective=chess.WHITE, large=False):
             lost_by = perspective if i == 0 else not perspective
             tray_fg = white_fg if lost_by == chess.WHITE else blue_fg
             tray_str = f"  {tray_fg}{tray}{reset}"
-        if large:
-            print("".join(row_top))
-            print("".join(row_mid) + reset + tray_str)
-            print("".join(row_bot))
-        else:
-            print("".join(row_mid) + reset + tray_str)
-            print("".join(row_bot))
+        print("".join(row_top))
+        print("".join(row_mid) + reset + tray_str)
+        print("".join(row_bot))
     files = "abcdefgh" if perspective == chess.WHITE else "hgfedcba"
-    if large:
-        print(f"     {label}" + "".join(f"  {f}   " for f in files) + f"{reset}\n")
-    else:
-        print(f"   {label}" + "".join(f" {f}  " for f in files) + f"{reset}\n")
+    print(f"    {label}" + "".join(f"  {f}   " for f in files) + f"{reset}\n")
 
 
 def captured_pieces(board, perspective):
@@ -287,7 +257,7 @@ async def get_engine_move(engine, board, limit, game_id, multipv, debug=False):
         return analysis.info["pv"][0]
 
 
-async def play(engine, board, selfplay, pvs, time_limit, debug=False, large=False):
+async def play(engine, board, selfplay, pvs, time_limit, debug=False):
     if not selfplay:
         user_color = get_user_color()
     else:
@@ -299,7 +269,7 @@ async def play(engine, board, selfplay, pvs, time_limit, debug=False, large=Fals
     game_id = random.random()
 
     while not board.is_game_over():
-        print_unicode_board(board, perspective=user_color, large=large)
+        print_unicode_board(board, perspective=user_color)
         if not selfplay and user_color == board.turn:
             move = get_user_move(board)
             if move is None:
@@ -312,7 +282,7 @@ async def play(engine, board, selfplay, pvs, time_limit, debug=False, large=Fals
         board.push(move)
 
     # Print status
-    print_unicode_board(board, perspective=user_color, large=large)
+    print_unicode_board(board, perspective=user_color)
     print("Result:", board.result())
 
 
@@ -382,7 +352,6 @@ async def main():
             pvs=args.pvs,
             time_limit=limit,
             debug=args.debug,
-            large=args.large,
         )
     finally:
         print("\nGoodbye!")
