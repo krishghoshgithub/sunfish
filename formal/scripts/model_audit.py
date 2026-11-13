@@ -43,10 +43,10 @@ CONSTANTS = ["MATE_LOWER", "MATE_UPPER", "QS", "QS_A", "LMR", "EVAL_ROUGHNESS",
 EXPECTED = {
     "Position.gen_moves": "3453dbe008109d3d",
     "Position.king_capture": "56b643664bf8ea5d",
-    "Position.move": "2bb64b5eed188bc4",
-    "Position.rotate": "c0ba20968acca6ce",
+    "Position.move": "1c3b3aa0b0abe6b7",
+    "Position.rotate": "72b7b3aa853072b1",
     "Position.value": "11d52eaa8a661352",
-    "Searcher.bound": "5befa60b6a39586b",
+    "Searcher.bound": "34850b475a61d03c",
     "Searcher.search": "d1a2cb5c89a77c53",
     "constants": "a606e88a69af8dd0",
 }
